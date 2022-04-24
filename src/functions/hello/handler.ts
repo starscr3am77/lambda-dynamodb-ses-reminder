@@ -8,6 +8,7 @@ import {
   QueryCommandInput,
 } from "@aws-sdk/client-dynamodb";
 import {
+  CreateTemplateResponse,
   SendEmailCommand,
   SendEmailCommandInput,
   SESClient,
@@ -19,7 +20,7 @@ import schema from "./schema";
 const client = new DynamoDBClient({ region: process.env.AWS_REGION });
 const sesClient = new SESClient({ region: process.env.AWS_REGION });
 
-const EXPIRATION_DAYS_THRESHOLD = 50;
+const EXPIRATION_DAYS_THRESHOLD = 30;
 
 /**
  * Calculate difference in days between two dates.
@@ -48,6 +49,27 @@ const asyncForEach = async (
   }
 };
 
+async function getAccountName(uid) {
+  //console.log("aid: " + uid);
+  const params: QueryCommandInput = {
+    TableName: "Accounts",
+    IndexName: "UID-index",
+    KeyConditionExpression: "#uid = :uid",
+    ExpressionAttributeNames: {
+      "#uid": "UID",
+    },
+    ExpressionAttributeValues: marshall({
+      ":uid": uid
+    }),
+  };
+  try {
+    const results = await client.send(new QueryCommand(params));
+    return results;
+  } catch (err) {
+    return err;
+  }
+}
+
 /**
  * Entry point for Lambda invocation.
  *
@@ -71,29 +93,6 @@ const hello: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
     }),
   };
 
-  const sesParams: SendEmailCommandInput = {
-    Destination: {
-      ToAddresses: ["mark@causeandasweat.com", "shaunn@retrievtech.com"],
-    },
-    Message: {
-      Body: {
-        Html: {
-          Charset: "UTF-8",
-          Data: "Approval expiring: APPROVAL_PLACEHOLDER",
-        },
-        Text: {
-          Charset: "UTF-8",
-          Data: "Approval expiring: APPROVAL_PLACEHOLDER",
-        },
-      },
-      Subject: {
-        Charset: "UTF-8",
-        Data: "Approval is nearing expiration",
-      },
-    },
-    Source: "mark@causeandasweat.com",
-  };
-
   try {
     // Determine which approvals are nearing expiration.
     const results = await client.send(new QueryCommand(dbParams));
@@ -105,16 +104,77 @@ const hello: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
         approvalsExpiring.push(element);
       }
     });
-    console.info(`Approvals expiring: ${JSON.stringify(approvalsExpiring)}`);
+    //console.info(`Approvals expiring: ${JSON.stringify(approvalsExpiring)}`);
 
     // Then send to SES for any found close to expiring.
     await asyncForEach(
       approvalsExpiring,
+      //const acc_name = await getAccountName(approvalsExpiring.UID.S);
       async (approval: { [key: string]: AttributeValue }) => {
-        sesParams.Message.Body.Html.Data =
+        const acc_name = await getAccountName(approval.AID.S);
+        //console.log(acc_name);
+        //console.log(acc_name.Items[0].AccountName.S);
+        //console.log(approval);
+
+        //var sesParams = {};
+
+        switch (approval.ApprovalFacility.S) {
+          case "Trail, BC":
+            //console.log("Trail, BC");
+            var sesParams: SendEmailCommandInput = {
+              Destination: {
+                ToAddresses: ["shaunn@retrievtech.com"],
+              },
+              Message: {
+                Body: {
+                  Html: {
+                    Charset: "UTF-8",
+                    Data: "Approval expiring: APPROVAL_PLACEHOLDER",
+                  },
+                  Text: {
+                    Charset: "UTF-8",
+                    Data: "Approval expiring: APPROVAL_PLACEHOLDER",
+                  },
+                },
+                Subject: {
+                  Charset: "UTF-8",
+                  Data: "Approval is nearing expiration",
+                },
+              },
+              Source: "no-reply@retrievtech.cloud",
+            };
+            break;
+          default:
+            //console.log("Lancaster, OH");
+            var sesParams: SendEmailCommandInput = {
+              Destination: {
+                ToAddresses: ["shaunn@retrievtech.com"],
+              },
+              Message: {
+                Body: {
+                  Html: {
+                    Charset: "UTF-8",
+                    Data: "Approval expiring: APPROVAL_PLACEHOLDER",
+                  },
+                  Text: {
+                    Charset: "UTF-8",
+                    Data: "Approval expiring: APPROVAL_PLACEHOLDER",
+                  },
+                },
+                Subject: {
+                  Charset: "UTF-8",
+                  Data: "Approval is nearing expiration",
+                },
+              },
+              Source: "no-reply@retrievtech.cloud",
+            };
+        }     
+
+        sesParams.Message.Body.Html.Data = //`<html><body>Account: ${acc_name.Items[0].AccountName.S}<br/>Facility: ${approval.ApprovalFacility.S}<br/>Author: ${approval.Author.S}</br>Expires: ${approval.ApprovalExpires.S}</body></html>` //JSON.stringify(approval)
           sesParams.Message.Body.Html.Data.replace(
             "APPROVAL_PLACEHOLDER",
-            JSON.stringify(approval)
+            //JSON.stringify(approval)
+            `<html><body>Account: ${acc_name.Items[0].AccountName.S}<br/>Facility: ${approval.ApprovalFacility.S}<br/>Author: ${approval.Author.S}</br>Expires: ${approval.ApprovalExpires.S}</body></html>`
           );
         sesParams.Message.Body.Text.Data =
           sesParams.Message.Body.Text.Data.replace(
