@@ -20,7 +20,7 @@ export default {
         // Once at 3:15 PM UTC every day (7:15 AM PST).
         rate: ["cron(15 15 * * ? *)"],
         input: {
-          name: "Mark Fowler",
+          name: "Shaun Nieves",
         },
       },
     },

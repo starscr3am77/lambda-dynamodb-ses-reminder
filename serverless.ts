@@ -5,11 +5,15 @@ import hello from "@functions/hello";
 const serverlessConfiguration: AWS = {
   service: "lambda-dynamodb-ses-reminder",
   frameworkVersion: "3",
-  plugins: ["serverless-esbuild"],
+  plugins: ["serverless-esbuild", "serverless-deployment-bucket"],
   provider: {
+    deploymentBucket: {
+      name: "dev-serenity-mh-apps",
+      serverSideEncryption: "aws:kms"
+    },
     name: "aws",
     runtime: "nodejs14.x",
-    region: "us-east-2",
+    region: "us-east-1",
     apiGateway: {
       minimumCompressionSize: 1024,
       shouldStartNameWithService: true,
@@ -75,21 +79,6 @@ const serverlessConfiguration: AWS = {
                       "logs:CreateLogGroup",
                       "logs:CreateLogStream",
                       "logs:PutLogEvents",
-                    ],
-                  },
-                  {
-                    Effect: "Allow",
-                    Resource: [
-                      "arn:aws:dynamodb:us-east-2:164328173263:table/Approvals",
-                      "arn:aws:dynamodb:us-east-2:164328173263:table/Approvals/index/*",
-                    ],
-                    Action: [
-                      "dynamodb:BatchGet*",
-                      "dynamodb:DescribeStream",
-                      "dynamodb:DescribeTable",
-                      "dynamodb:Get*",
-                      "dynamodb:Query",
-                      "dynamodb:Scan",
                     ],
                   },
                 ],
